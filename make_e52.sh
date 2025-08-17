@@ -1,10 +1,15 @@
 #!/bin/bash
 set -e
-cp -rf ~/istoreos/build_dir/target-aarch64_generic_musl/linux-rockchip_armv8/image-rk3588s-e52c.dtb ~/out/
-cp -rf ~/istoreos/build_dir/target-aarch64_generic_musl/linux-rockchip_armv8/root.ext4 ~/out
-cp -rf ~/istoreos/build_dir/target-aarch64_generic_musl/linux-rockchip_armv8/Image ~/out
-cp -rf ~/istoreos/build_dir/target-aarch64_generic_musl/u-boot-easepi-rk3588-lp4-1866/u-boot-2024.10/u-boot.itb ~/out
-cp -rf ~/istoreos/build_dir/target-aarch64_generic_musl/u-boot-easepi-rk3588-lp4-1866/u-boot-2024.10/idbloader.img ~/out
+
+mkdir -p ~/out
+
+rm -rf out/*
+
+cp -rf istoreos/build_dir/target-aarch64_generic_musl/linux-rockchip_armv8/image-rk3588s-e52c.dtb ~/out/
+cp -rf istoreos/build_dir/target-aarch64_generic_musl/linux-rockchip_armv8/root.ext4 ~/out
+cp -rf istoreos/build_dir/target-aarch64_generic_musl/linux-rockchip_armv8/Image ~/out
+cp -rf istoreos/build_dir/target-aarch64_generic_musl/u-boot-easepi-rk3588-lp4-1866/u-boot-2024.10/u-boot.itb ~/out
+cp -rf istoreos/build_dir/target-aarch64_generic_musl/u-boot-easepi-rk3588-lp4-1866/u-boot-2024.10/idbloader.img ~/out
 
 IMG_NAME="e52c.img"
 SIZE_MB=1024   # 1 GB
@@ -15,6 +20,15 @@ UBOOT="$OUT_DIR/u-boot.itb"
 KERNEL="$OUT_DIR/Image"
 DTB="$OUT_DIR/image-rk3588s-e52c.dtb"
 ROOTFS_IMG="$OUT_DIR/root.ext4"   # Already prepared ext4 root filesystem
+
+SD_DEV=$(lsblk -o NAME,RM,TYPE | awk '$2 == 1 && $3 == "disk" {print "/dev/"$1; exit}')
+
+if [ -z "$SD_DEV" ]; then
+    echo "No removable SD device found!"
+    exit 1
+fi
+
+echo "Using SD device: $SD_DEV"
 
 # ---- Check files ----
 for f in "$IDB" "$UBOOT" "$KERNEL" "$DTB" "$ROOTFS_IMG"; do
@@ -80,7 +94,6 @@ echo "[8/9] Cleaning up loop device..."
 sudo losetup -d "$LOOP_DEV"
 
 echo "[9/9] Writing image to SD card..."
-read -p "Enter SD card device (e.g. /dev/sdb): " SD_DEV
 [ -b "$SD_DEV" ] || { echo "Invalid device."; exit 1; }
 sudo dd if="$IMG_NAME" of="$SD_DEV" bs=4M status=progress conv=fsync
 
